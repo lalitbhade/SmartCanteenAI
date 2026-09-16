@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartCanteen AI</title><link rel="stylesheet" href="/static/style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head>
+<body><main>
+<header><div><small>AI COMPETITION PROJECT</small><h1>SmartCanteen <b>AI</b></h1><p>Intelligent food demand prediction & waste reduction</p></div><div class="icon">🍽️</div></header>
+<section class="hero"><h2>Predict tomorrow's demand before you cook.</h2><p>Turn historical canteen sales into smarter preparation decisions.</p></section>
+<div class="grid">
+<section class="card"><h3>🔮 Demand Predictor</h3><form id="form">
+<label>Food Item</label><select id="food">{% for f in foods %}<option>{{f}}</option>{% endfor %}</select>
+<label>Target Date</label><input id="date" type="date"><label>Expected Students</label><input id="students" type="number" value="500" min="0">
+<label>Price (₹)</label><input id="price" type="number" value="20" step=".5" min="0"><div class="checks">
+<label><input id="holiday" type="checkbox"> Holiday</label><label><input id="exam" type="checkbox"> Exam Day</label></div>
+<button>Predict Demand</button></form><div id="result" class="result"></div></section>
+<section class="card"><h3>📊 Recent Sales</h3><canvas id="chart"></canvas><div class="stat">Total recorded sales <b id="total">—</b> <small>(<span id="records">—</span> records)</small></div></section>
+</div>
+
+<div class="grid">
+<section class="card"><h3>1️⃣ Historical Data</h3><p>Latest 20 records used by the system.</p><div class="table-wrap"><table><thead><tr><th>Date</th><th>Food</th><th>Sold</th><th>Students</th><th>Price</th></tr></thead><tbody id="history"></tbody></table></div></section>
+<section class="card"><h3>2️⃣ Features</h3><p>Features prepared for the selected food item.</p><div id="features" class="feature-box">Select a food item to view features.</div></section>
+</div>
+
+<div class="grid">
+<section class="card"><h3>3️⃣ Random Forest</h3><p>Live model information loaded from the trained model file.</p><div id="model" class="feature-box">Loading model information...</div></section>
+<section class="card"><h3>4️⃣ Recommendation</h3><p>The recommendation is generated after prediction.</p><div id="recommendation" class="feature-box">Enter inputs and tap <b>Predict Demand</b>.</div></section>
+</div>
+
+<section class="card"><h3>🤖 AI Pipeline</h3><div class="steps"><button onclick="showSection(1)">1. Historical data</button><button onclick="showSection(2)">2. Features</button><button onclick="showSection(3)">3. Random Forest</button><button onclick="showSection(4)">4. Recommendation</button></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let d=new Date();d.setDate(d.getDate()+1);$("date").value=d.toISOString().slice(0,10);let chart;
+async function loadSummary(){const r=await fetch("/api/summary");const j=await r.json();$("total").textContent=(j.total_sales||0).toLocaleString();$("records").textContent=j.records||0;if(chart)chart.destroy();chart=new Chart($("chart"),{type:"bar",data:{labels:j.foods,datasets:[{label:"Last 7 days",data:j.sales}]},options:{responsive:true}});}
+async function loadHistory(){const j=await (await fetch("/api/historical")).json();$("history").innerHTML=j.rows.map(x=>`<tr><td>${x.date}</td><td>${x.food_item}</td><td>${x.quantity_sold}</td><td>${x.students_present}</td><td>₹${x.price}</td></tr>`).join("");}
+async function loadFeatures(){const food=$("food").value;const r=await fetch("/api/features/"+encodeURIComponent(food));const j=await r.json();if(!r.ok){$("features").textContent=j.error;return;}$("features").innerHTML=Object.entries(j.features).map(([k,v])=>`<div><b>${k.replaceAll("_"," ")}</b><span>${v}</span></div>`).join("");}
+async function loadModel(){const food=$("food").value;const r=await fetch("/api/model/"+encodeURIComponent(food));const j=await r.json();$("model").innerHTML=j.available?`<div><b>Algorithm</b><span>${j.algorithm}</span></div><div><b>Number of trees</b><span>${j.estimators}</span></div><div><b>Status</b><span>✅ Trained model loaded</span></div><div><b>Input features</b><span>${j.features.length}</span></div>`:`❌ Model file not found for ${food}`;}
+$("food").onchange=()=>{loadFeatures();loadModel();};
+$("form").onsubmit=async e=>{e.preventDefault();$("result").innerHTML="Calculating...";$("recommendation").innerHTML="Calculating recommendation...";let x={food_item:$("food").value,target_date:$("date").value,students_present:$("students").value,price:$("price").value,is_holiday:$("holiday").checked?1:0,is_exam_day:$("exam").checked?1:0};let r=await fetch("/api/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(x)});let j=await r.json();if(r.ok){$("result").innerHTML=`<strong>${j.predicted_demand}</strong><p>Predicted portions of ${j.food_item}</p><div>Recommended preparation: <b>${j.recommended_preparation}</b></div><small>Safety buffer: ${j.buffer} portions (${j.buffer_percent}%)</small>`;$("recommendation").innerHTML=`<div><b>Predicted demand</b><span>${j.predicted_demand} portions</span></div><div><b>Safety buffer</b><span>${j.buffer} portions (${j.buffer_percent}%)</span></div><div><b>Recommended preparation</b><span>${j.recommended_preparation} portions</span></div><p>Formula: ${j.predicted_demand} + ${j.buffer} = <b>${j.recommended_preparation}</b></p>`;}else{$("result").innerHTML="❌ "+j.error;$("recommendation").textContent="Prediction failed.";}};
+function showSection(n){document.querySelectorAll('.card')[n+2]?.scrollIntoView({behavior:'smooth',block:'center'});}
+loadSummary();loadHistory();loadFeatures();loadModel();
+</script></body></html>
