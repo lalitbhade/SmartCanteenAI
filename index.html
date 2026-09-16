@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartCanteen AI</title><link rel="stylesheet" href="/static/style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head>
+<body><main><header><div><small>AI COMPETITION PROJECT</small><h1>SmartCanteen <b>AI</b></h1><p>Intelligent food demand prediction & waste reduction</p></div><div class="icon">🍽️</div></header>
+<section class="hero"><h2>Predict tomorrow's demand before you cook.</h2><p>Turn historical canteen sales into smarter preparation decisions.</p></section>
+<div class="grid"><section class="card"><h3>🔮 Demand Predictor</h3><form id="form">
+<label>Food Item</label><select id="food">{% for f in foods %}<option>{{f}}</option>{% endfor %}</select>
+<label>Target Date</label><input id="date" type="date"><label>Expected Students</label><input id="students" type="number" value="500">
+<label>Price (₹)</label><input id="price" type="number" value="20" step=".5"><div class="checks">
+<label><input id="holiday" type="checkbox"> Holiday</label><label><input id="exam" type="checkbox"> Exam Day</label></div>
+<button>Predict Demand</button></form><div id="result" class="result"></div></section>
+<section class="card"><h3>📊 Recent Sales</h3><canvas id="chart"></canvas><div class="stat">Total recorded sales <b id="total">—</b></div></section></div>
+<section class="card"><h3>🤖 AI Pipeline</h3><div class="steps"><span>1. Historical data</span><span>2. Features</span><span>3. Random Forest</span><span>4. Recommendation</span></div></section></main>
+<script>
+let d=new Date();d.setDate(d.getDate()+1);document.querySelector("#date").value=d.toISOString().slice(0,10);
+form.onsubmit=async e=>{e.preventDefault();result.innerHTML="Calculating...";let x={food_item:food.value,target_date:date.value,students_present:students.value,price:price.value,is_holiday:holiday.checked?1:0,is_exam_day:exam.checked?1:0};
+let r=await fetch("/api/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(x)});let j=await r.json();result.innerHTML=r.ok?`<strong>${j.predicted_demand}</strong><p>Predicted portions of ${j.food_item}</p><div>Recommended preparation: <b>${j.recommended_preparation}</b></div><small>Safety buffer: ${j.buffer}</small>`:"❌ "+j.error};
+fetch("/api/summary").then(r=>r.json()).then(j=>{total.textContent=j.total_sales.toLocaleString();new Chart(chart,{type:"bar",data:{labels:j.foods,datasets:[{label:"Last 7 days",data:j.sales}]},options:{responsive:true}})});
+</script></body></html>
